@@ -1,10 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  /* Default (Dracula) */
   --background: #282a36;
   --foreground: #f8f8f2;
-  
-  /* Dracula Theme Colors */
   --dracula-bg: #282a36;
   --dracula-current: #44475a;
   --dracula-fg: #f8f8f2;
@@ -18,10 +17,42 @@
   --dracula-yellow: #f1fa8c;
 }
 
+[data-theme='light'] {
+  --background: #ffffff;
+  --foreground: #282a36;
+  --dracula-bg: #ffffff;
+  --dracula-current: #e2e8f0;
+  --dracula-fg: #282a36;
+  --dracula-comment: #94a3b8;
+  --dracula-cyan: #0ea5e9;
+  --dracula-green: #22c55e;
+  --dracula-orange: #f97316;
+  --dracula-pink: #ec4899;
+  --dracula-purple: #8b5cf6;
+  --dracula-red: #ef4444;
+  --dracula-yellow: #eab308;
+}
+
+[data-theme='midnight'] {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --dracula-bg: #0f172a;
+  --dracula-current: #1e293b;
+  --dracula-fg: #f8fafc;
+  --dracula-comment: #475569;
+  --dracula-cyan: #38bdf8;
+  --dracula-green: #4ade80;
+  --dracula-orange: #fb923c;
+  --dracula-pink: #f472b6;
+  --dracula-purple: #a78bfa;
+  --dracula-red: #f87171;
+  --dracula-yellow: #facc15;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  
+
   --color-dracula-bg: var(--dracula-bg);
   --color-dracula-current: var(--dracula-current);
   --color-dracula-fg: var(--dracula-fg);

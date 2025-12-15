@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { FaTimes, FaSearch } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
 
 export default function NewChatModal({
     currentUserId,
@@ -13,39 +13,38 @@ export default function NewChatModal({
     onClose: () => void;
     onChatCreated: (chatId: string) => void;
 }) {
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [friends, setFriends] = useState<any[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
     const [groupName, setGroupName] = useState("");
-    const [isGroup, setIsGroup] = useState(false);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const searchUsers = async () => {
-            if (searchQuery.length < 3) {
-                setSearchResults([]);
-                return;
-            }
+        const fetchFriends = async () => {
+            const { data: friendsData } = await supabase
+                .from("friends")
+                .select("friend_id, profiles!friends_friend_id_fkey(username, avatar_url, tag)")
+                .eq("user_id", currentUserId)
+                .eq("status", "accepted");
 
-            const { data, error } = await supabase
-                .from("profiles")
-                .select("*")
-                .ilike("username", `%${searchQuery}%`)
-                .neq("id", currentUserId)
-                .limit(5);
+            const { data: inverseFriendsData } = await supabase
+                .from("friends")
+                .select("user_id, profiles!friends_user_id_fkey(username, avatar_url, tag)")
+                .eq("friend_id", currentUserId)
+                .eq("status", "accepted");
 
-            if (data) {
-                setSearchResults(data);
-            }
+            const allFriendsRaw = [
+                ...(friendsData?.map(f => ({ id: f.friend_id, ...f.profiles })) || []),
+                ...(inverseFriendsData?.map(f => ({ id: f.user_id, ...f.profiles })) || [])
+            ];
+            const uniqueFriends = Array.from(new Map(allFriendsRaw.map(item => [item.id, item])).values());
+            setFriends(uniqueFriends);
         };
-
-        const timeoutId = setTimeout(searchUsers, 300);
-        return () => clearTimeout(timeoutId);
-    }, [searchQuery, currentUserId]);
+        fetchFriends();
+    }, [currentUserId]);
 
     const handleCreateChat = async () => {
         if (selectedUsers.length === 0) return;
-        if (isGroup && !groupName) return;
+        if (!groupName) return;
 
         setLoading(true);
 
@@ -53,8 +52,8 @@ export default function NewChatModal({
             const participantIds = [currentUserId, ...selectedUsers.map(u => u.id)];
 
             const { data: chatId, error } = await supabase.rpc('create_chat', {
-                type: isGroup ? "group" : "direct",
-                name: isGroup ? groupName : null,
+                type: "group",
+                name: groupName,
                 participant_ids: participantIds
             });
 
@@ -73,11 +72,7 @@ export default function NewChatModal({
         if (selectedUsers.find((u) => u.id === user.id)) {
             setSelectedUsers(selectedUsers.filter((u) => u.id !== user.id));
         } else {
-            if (!isGroup) {
-                setSelectedUsers([user]);
-            } else {
-                setSelectedUsers([...selectedUsers, user]);
-            }
+            setSelectedUsers([...selectedUsers, user]);
         }
     };
 
@@ -85,62 +80,41 @@ export default function NewChatModal({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-dracula-current p-6 rounded-lg w-96 shadow-xl border border-dracula-comment">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-dracula-purple">New Chat</h2>
+                    <h2 className="text-xl font-bold text-dracula-purple">New Group Chat</h2>
                     <button onClick={onClose} className="text-dracula-comment hover:text-dracula-red">
                         <FaTimes />
                     </button>
                 </div>
 
                 <div className="mb-4">
-                    <div className="flex gap-4 mb-4">
-                        <button
-                            onClick={() => { setIsGroup(false); setSelectedUsers([]); }}
-                            className={`flex-1 py-1 rounded ${!isGroup ? "bg-dracula-purple text-dracula-bg" : "bg-dracula-bg text-dracula-fg"}`}
-                        >
-                            Direct Message
-                        </button>
-                        <button
-                            onClick={() => { setIsGroup(true); setSelectedUsers([]); }}
-                            className={`flex-1 py-1 rounded ${isGroup ? "bg-dracula-purple text-dracula-bg" : "bg-dracula-bg text-dracula-fg"}`}
-                        >
-                            Group Chat
-                        </button>
-                    </div>
+                    <input
+                        type="text"
+                        placeholder="Group Name"
+                        value={groupName}
+                        onChange={(e) => setGroupName(e.target.value)}
+                        className="w-full p-2 mb-4 rounded bg-dracula-bg border border-dracula-comment text-dracula-fg focus:outline-none focus:border-dracula-purple"
+                    />
 
-                    {isGroup && (
-                        <input
-                            type="text"
-                            placeholder="Group Name"
-                            value={groupName}
-                            onChange={(e) => setGroupName(e.target.value)}
-                            className="w-full p-2 mb-4 rounded bg-dracula-bg border border-dracula-comment text-dracula-fg focus:outline-none focus:border-dracula-purple"
-                        />
-                    )}
-
-                    <div className="relative">
-                        <input
-                            type="text"
-                            placeholder="Search users..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full p-2 rounded bg-dracula-bg border border-dracula-comment text-dracula-fg focus:outline-none focus:border-dracula-purple pl-8"
-                        />
-                        <FaSearch className="absolute left-2 top-3 text-dracula-comment" />
-                    </div>
-
-                    {/* Search Results */}
-                    <div className="mt-2 max-h-40 overflow-y-auto">
-                        {searchResults.map((user) => (
-                            <div
-                                key={user.id}
-                                onClick={() => toggleUserSelection(user)}
-                                className={`p-2 flex items-center gap-2 cursor-pointer hover:bg-dracula-comment/20 rounded ${selectedUsers.find((u) => u.id === user.id) ? "bg-dracula-purple/20" : ""
-                                    }`}
-                            >
-                                <img src={user.avatar_url} alt={user.username} className="w-8 h-8 rounded-full" />
-                                <span>{user.username}</span>
-                            </div>
-                        ))}
+                    <h3 className="text-sm text-dracula-comment mb-2">Select Friends:</h3>
+                    <div className="max-h-60 overflow-y-auto space-y-2 border border-dracula-comment/30 rounded p-2">
+                        {friends.length === 0 ? (
+                            <p className="text-center text-dracula-comment text-sm">No friends found.</p>
+                        ) : (
+                            friends.map((user) => (
+                                <div
+                                    key={user.id}
+                                    onClick={() => toggleUserSelection(user)}
+                                    className={`p-2 flex items-center gap-2 cursor-pointer hover:bg-dracula-comment/20 rounded ${selectedUsers.find((u) => u.id === user.id) ? "bg-dracula-purple/20 border border-dracula-purple" : ""
+                                        }`}
+                                >
+                                    <img src={user.avatar_url} alt={user.username} className="w-8 h-8 rounded-full" />
+                                    <div className="flex flex-col">
+                                        <span className="font-semibold text-dracula-fg">{user.username}</span>
+                                        <span className="text-xs text-dracula-comment">#{user.tag}</span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
 
                     {/* Selected Users */}
@@ -161,10 +135,10 @@ export default function NewChatModal({
 
                 <button
                     onClick={handleCreateChat}
-                    disabled={loading || selectedUsers.length === 0 || (isGroup && !groupName)}
+                    disabled={loading || selectedUsers.length === 0 || !groupName}
                     className="w-full py-2 bg-dracula-green text-dracula-bg font-bold rounded hover:bg-green-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {loading ? "Creating..." : "Create Chat"}
+                    {loading ? "Creating..." : "Create Group"}
                 </button>
             </div>
         </div>

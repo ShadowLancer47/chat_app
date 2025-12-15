@@ -32,13 +32,13 @@ export default function Sidebar({
             // 1. Fetch Friends (accepted)
             const { data: friendsData } = await supabase
                 .from("friends")
-                .select("friend_id, profiles!friends_friend_id_fkey(username, avatar_url)")
+                .select("friend_id, profiles!friends_friend_id_fkey(username, avatar_url, tag)")
                 .eq("user_id", currentUserId)
                 .eq("status", "accepted");
 
             const { data: inverseFriendsData } = await supabase
                 .from("friends")
-                .select("user_id, profiles!friends_user_id_fkey(username, avatar_url)")
+                .select("user_id, profiles!friends_user_id_fkey(username, avatar_url, tag)")
                 .eq("friend_id", currentUserId)
                 .eq("status", "accepted");
 
@@ -169,7 +169,10 @@ export default function Sidebar({
                                                 <img src={friend.avatar_url} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
                                                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-dracula-current"></div>
                                             </div>
-                                            <span className="font-semibold text-dracula-fg">{friend.username}</span>
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-dracula-fg">{friend.username}</span>
+                                                <span className="text-xs text-dracula-comment">#{friend.tag}</span>
+                                            </div>
                                         </div>
                                     ))
                                 )}

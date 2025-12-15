@@ -23,16 +23,30 @@ export default function AddFriendModal({
                 return;
             }
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from("profiles")
                 .select("*")
-                .ilike("username", `%${searchQuery}%`)
                 .neq("id", currentUserId)
-                .limit(5);
+                .limit(10);
+
+            // Check if query contains #
+            if (searchQuery.includes('#')) {
+                const [usernamePart, tagPart] = searchQuery.split('#');
+                if (tagPart) {
+                    query = query
+                        .ilike("username", `${usernamePart}`)
+                        .eq("tag", tagPart);
+                } else {
+                    // Ends with # but no tag yet, just search username
+                    query = query.ilike("username", `%${usernamePart}%`);
+                }
+            } else {
+                query = query.ilike("username", `%${searchQuery}%`);
+            }
+
+            const { data, error } = await query;
 
             if (data) {
-                // Filter out existing friends (optional, but good UX)
-                // For now just show all results
                 setSearchResults(data);
             }
         };
@@ -59,11 +73,15 @@ export default function AddFriendModal({
                 setSentRequests([...sentRequests, friendId]);
 
                 // Send notification
+                // Fetch my profile to send name
+                const { data: myProfile } = await supabase.from("profiles").select("username").eq("id", currentUserId).single();
+
                 await supabase.from("notifications").insert([
                     {
                         user_id: friendId,
+                        sender_id: currentUserId,
                         type: 'friend_request',
-                        content: `You have a new friend request from someone!`, // Ideally fetch username
+                        content: `You have a new friend request from ${myProfile?.username || 'someone'}!`,
                     }
                 ]);
             }
@@ -86,7 +104,7 @@ export default function AddFriendModal({
                 <div className="relative mb-4">
                     <input
                         type="text"
-                        placeholder="Search users by username..."
+                        placeholder="Search username#0000..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full p-2 rounded bg-dracula-bg border border-dracula-comment text-dracula-fg focus:outline-none focus:border-dracula-purple pl-8"
@@ -105,7 +123,10 @@ export default function AddFriendModal({
                         >
                             <div className="flex items-center gap-3">
                                 <img src={user.avatar_url} alt={user.username} className="w-8 h-8 rounded-full" />
-                                <span className="font-semibold text-dracula-fg">{user.username}</span>
+                                <div className="flex flex-col">
+                                    <span className="font-semibold text-dracula-fg">{user.username}</span>
+                                    <span className="text-xs text-dracula-comment">#{user.tag}</span>
+                                </div>
                             </div>
                             <button
                                 onClick={() => handleAddFriend(user.id)}
