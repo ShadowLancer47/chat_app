@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { FaUser, FaUsers, FaPlus, FaUserPlus } from "react-icons/fa";
+import { FaUser, FaUsers, FaPlus, FaUserPlus, FaTrash } from "react-icons/fa";
 import NewChatModal from "./NewChatModal";
 import AddFriendModal from "./AddFriendModal";
 
@@ -125,6 +125,36 @@ export default function Sidebar({
         }
     };
 
+    const handleDeleteChat = async (e: React.MouseEvent, chatId: string, chatName: string) => {
+        e.stopPropagation();
+        if (!confirm(`Are you sure you want to delete/leave the group "${chatName}"?`)) return;
+
+        try {
+            // For now, just remove the participant (Leave Group)
+            // If it's the last participant, maybe delete the chat? 
+            // Supabase policies usually handle this or we can just leave it.
+
+            const { error } = await supabase
+                .from("chat_participants")
+                .delete()
+                .eq("chat_id", chatId)
+                .eq("user_id", currentUserId);
+
+            if (error) throw error;
+
+            // If we want to delete the chat entirely if we are the creator/admin, that requires more logic.
+            // For now, "leaving" removes it from the sidebar.
+
+            fetchData();
+            if (groups.find(g => g.id === chatId)) {
+                onSelectChat(""); // Deselect if it was selected
+            }
+        } catch (error) {
+            console.error("Error deleting chat:", error);
+            alert("Error deleting chat");
+        }
+    };
+
     return (
         <>
             <div className="w-80 bg-dracula-current flex flex-col border-r border-dracula-comment h-full">
@@ -188,12 +218,21 @@ export default function Sidebar({
                                         <div
                                             key={group.id}
                                             onClick={() => onSelectChat(group.id)}
-                                            className="p-3 flex items-center gap-3 hover:bg-dracula-comment/20 rounded cursor-pointer transition-colors"
+                                            className="p-3 flex items-center justify-between hover:bg-dracula-comment/20 rounded cursor-pointer transition-colors group"
                                         >
-                                            <div className="w-10 h-10 rounded-full bg-dracula-purple flex items-center justify-center text-dracula-bg">
-                                                <FaUsers />
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-dracula-purple flex items-center justify-center text-dracula-bg">
+                                                    <FaUsers />
+                                                </div>
+                                                <span className="font-semibold text-dracula-fg">{group.name}</span>
                                             </div>
-                                            <span className="font-semibold text-dracula-fg">{group.name}</span>
+                                            <button
+                                                onClick={(e) => handleDeleteChat(e, group.id, group.name)}
+                                                className="p-2 text-dracula-comment hover:text-dracula-red opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="Leave/Delete Group"
+                                            >
+                                                <FaTrash />
+                                            </button>
                                         </div>
                                     ))
                                 )}
